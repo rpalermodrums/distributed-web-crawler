@@ -40,9 +40,11 @@ Errors encountered during the crawl, such as network errors or parsing errors, w
 
 The `--output` argument specifies the output CSV file where the URL and title of visited pages will be stored. If `--output` is not provided, it defaults to `output.csv`.
 
+The crawler logs its activity to a file named `web_crawler.log`. This includes the URLs it visits, any errors it encounters, and other information.
+
 ## Limitations
 
-This web crawler does not handle dynamic content loaded with JavaScript. It's a basic tool for educational purposes and should be used responsibly.
+This web crawler does not handle dynamic content loaded with JavaScript. It's a basic tool for educational purposes and should be used responsibly. 
 
 ## License
 

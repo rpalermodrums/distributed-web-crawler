@@ -4,11 +4,23 @@ import argparse
 import urllib.parse
 import time
 import csv
+import logging
 from urllib.robotparser import RobotFileParser
+
+def setup_logger():
+    logger = logging.getLogger('web_crawler')
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler('web_crawler.log')
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
 
 def crawl(url, depth, output_file):
     visited = set()
     to_visit = {(url, 0)} # (url, depth)
+    logger = setup_logger()
 
     rp = RobotFileParser()
     rp.set_url(urllib.parse.urljoin(url, "/robots.txt"))
@@ -16,6 +28,7 @@ def crawl(url, depth, output_file):
         rp.read()
     except Exception as e:
         print(f"Error reading robots.txt: {e}")
+        logger.error(f"Error reading robots.txt: {e}")
         return
 
     with open(output_file, 'w', newline='') as file:
@@ -33,19 +46,22 @@ def crawl(url, depth, output_file):
                 response.raise_for_status()
             except (requests.HTTPError, requests.ConnectionError) as e:
                 print(f"Error fetching {current_url}: {e}")
+                logger.error(f"Error fetching {current_url}: {e}")
                 continue
 
             try:
                 soup = BeautifulSoup(response.text, 'html.parser')
             except Exception as e:
                 print(f"Error parsing {current_url}: {e}")
+                logger.error(f"Error parsing {current_url}: {e}")
                 continue
 
-            print(current_url)
             visited.add(current_url)
 
             title = soup.title.string if soup.title else 'No title'
             writer.writerow([current_url, title])
+            print(f"Crawled {current_url}, title: {title}")
+            logger.info(f"Crawled {current_url}, title: {title}")
 
             for link in soup.find_all('a'):
                 href = link.get('href')
