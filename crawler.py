@@ -41,6 +41,7 @@ def crawl(url, depth, output_file):
                 print(f"Error parsing {current_url}: {e}")
                 continue
 
+            print(current_url)
             visited.add(current_url)
 
             title = soup.title.string if soup.title else 'No title'
