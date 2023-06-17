@@ -5,6 +5,10 @@ __pycache__/
 
 # Data
 *.csv
+*.css
+.vscode/
+.DS_STORE
+
 
 # C extensions
 *.so

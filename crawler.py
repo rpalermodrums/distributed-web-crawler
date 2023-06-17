@@ -8,6 +8,8 @@ import logging
 from urllib.robotparser import RobotFileParser
 import concurrent.futures
 import threading
+import re
+
 
 def setup_logger():
     logger = logging.getLogger('web_crawler')
@@ -37,6 +39,25 @@ def process_url(url, depth, rp, visited, logger):
         print(f"Error parsing {url}: {e}, thread: {threading.current_thread().name}")
         logger.error(f"Error parsing {url}: {e}, thread: {threading.current_thread().name}")
         return [], 'No title'
+
+    # Download CSS files
+    for link in soup.find_all('link', rel='stylesheet'):
+        css_url = link.get('href')
+        css = ''
+        if css_url:
+            if not css_url.startswith(('http://', 'https://')):
+                css_url = urllib.parse.urljoin(url, css_url)
+            try:
+                css_response = requests.get(css_url, timeout=5)
+                css_response.raise_for_status()
+            except (requests.HTTPError, requests.ConnectionError) as e:
+                print(f"Error fetching CSS file {css_url}: {e}")
+                logger.error(f"Error fetching CSS file {css_url}: {e}")
+            else:
+                css_filename = re.sub(r'\W+', '_', css_url) + '.css'
+                css += css_response.text
+        with open('full.css', 'w') as f:
+            f.write(css)
 
     visited.add(url)
 
