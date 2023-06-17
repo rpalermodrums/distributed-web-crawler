@@ -38,7 +38,7 @@ def crawl(url, depth, output_file):
         while to_visit:
             current_url, current_depth = to_visit.pop()
 
-            if current_depth > depth or not rp.can_fetch("*", current_url):
+            if current_depth > depth or current_url is None or not rp.can_fetch("*", current_url):
                 continue
 
             try:
@@ -74,7 +74,7 @@ def crawl(url, depth, output_file):
                 if href and not href.startswith(('http://', 'https://')):
                     href = urllib.parse.urljoin(current_url, href)
 
-                if href not in visited:
+                if href and href not in visited:
                     to_visit.add((href, current_depth + 1))
 
             time.sleep(1)  # Delay between requests
