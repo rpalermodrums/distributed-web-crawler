@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import argparse
 import urllib.parse
+import time
 from urllib.robotparser import RobotFileParser
 
 def crawl(url, depth):
@@ -43,8 +44,10 @@ def crawl(url, depth):
             if href not in visited:
                 to_visit.add((href, current_depth + 1))
 
+        time.sleep(1)  # Delay between requests
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='A web crawler that respects robots.txt rules.')
+    parser = argparse.ArgumentParser(description='A web crawler that respects robots.txt rules and rate limits requests.')
     parser.add_argument('url', help='The URL to crawl.')
     parser.add_argument('--depth', type=int, default=2, help='The maximum depth to crawl.')
     args = parser.parse_args()
