@@ -11,7 +11,11 @@ def crawl(url, depth):
 
     rp = RobotFileParser()
     rp.set_url(urllib.parse.urljoin(url, "/robots.txt"))
-    rp.read()
+    try:
+        rp.read()
+    except Exception as e:
+        print(f"Error reading robots.txt: {e}")
+        return
 
     while to_visit:
         current_url, current_depth = to_visit.pop()
@@ -22,10 +26,15 @@ def crawl(url, depth):
         try:
             response = requests.get(current_url, timeout=5)
             response.raise_for_status()
-        except (requests.HTTPError, requests.ConnectionError):
+        except (requests.HTTPError, requests.ConnectionError) as e:
+            print(f"Error fetching {current_url}: {e}")
             continue
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        try:
+            soup = BeautifulSoup(response.text, 'html.parser')
+        except Exception as e:
+            print(f"Error parsing {current_url}: {e}")
+            continue
 
         visited.add(current_url)
         print(current_url)
