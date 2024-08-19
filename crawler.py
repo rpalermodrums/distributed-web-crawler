@@ -1,26 +1,26 @@
 import argparse
 import csv
-import importlib.util
 import json
 import logging
-import mimetypes
-import nltk
-from nltk.classify import TextCat
 import os
 import pickle
-import requests
-from bs4 import BeautifulSoup
-import schedule
-import selenium
-from selenium.webdriver.chrome.options import Options
 import smtplib
-from email.mime.text import MIMEText
-import sqlite3
-import threading
 import time
 import urllib.parse
-from urllib.robotparser import RobotFileParser
+
+import nltk
+import requests
+import schedule
+import sqlite3
 import yaml
+
+from bs4 import BeautifulSoup
+from email.mime.text import MIMEText
+from nltk.classify import TextCat
+from selenium.webdriver.chrome.options import Options
+from urllib.robotparser import RobotFileParser
+import importlib.util
+
 
 class AdvancedWebCrawler:
     def __init__(self, config):
