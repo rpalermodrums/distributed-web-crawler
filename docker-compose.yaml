@@ -1,0 +1,9 @@
+version: '3'
+services:
+  crawler:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python crawler.py
