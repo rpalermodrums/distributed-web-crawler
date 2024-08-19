@@ -170,3 +170,42 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Disclaimer
 
 This tool is for educational and research purposes only. Always respect website terms of service and `robots.txt` files. Use responsibly and ethically.
+
+## Testing
+
+To run the test suite for the Distributed Web Crawler, follow these steps:
+
+1. Ensure you have all the required dependencies installed:
+   ```
+   pip install -r requirements.txt
+   ```
+
+2. Run the tests using pytest:
+   ```
+   pytest tests/
+   ```
+
+   Or, if you're using Docker:
+   ```
+   docker-compose run --rm crawler pytest tests/
+   ```
+
+3. For more detailed test output, you can use the `-v` (verbose) flag:
+   ```
+   pytest -v tests/
+   ```
+
+4. To run specific test files or test functions, you can specify them:
+   ```
+   pytest tests/test_crawler.py
+   pytest tests/test_crawler.py::TestAdvancedWebCrawler::test_init
+   ```
+
+5. To generate a coverage report, run:
+   ```
+   pytest --cov=crawler tests/
+   ```
+
+   This will show you the percentage of code covered by your tests.
+
+Remember to write tests for any new features or bug fixes you implement. This helps maintain the reliability and stability of the crawler.
