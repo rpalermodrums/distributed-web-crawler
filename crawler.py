@@ -1,23 +1,26 @@
-import requests
-from bs4 import BeautifulSoup
 import argparse
-import urllib.parse
-import time
 import csv
+import importlib.util
 import json
-import sqlite3
 import logging
-from urllib.robotparser import RobotFileParser
-import concurrent.futures
-import threading
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-import yaml
-import schedule
+import mimetypes
 import nltk
 from nltk.classify import TextCat
+import os
+import pickle
+import requests
+from bs4 import BeautifulSoup
+import schedule
+import selenium
+from selenium.webdriver.chrome.options import Options
 import smtplib
 from email.mime.text import MIMEText
+import sqlite3
+import threading
+import time
+import urllib.parse
+from urllib.robotparser import RobotFileParser
+import yaml
 
 class AdvancedWebCrawler:
     def __init__(self, config):
@@ -30,8 +33,12 @@ class AdvancedWebCrawler:
         self.proxy_list = self.load_proxy_list()
         self.current_proxy_index = 0
         self.content_store = {}
-        nltk.download('punkt')
+        nltk.download('punkt', quiet=True)
         self.text_classifier = TextCat()
+        self.session = requests.Session()
+        self.session.headers.update({'User-Agent': self.config.get('user_agent', 'AdvancedWebCrawler/1.0')})
+        self.broken_links = []
+        self.plugins = self.load_plugins()
 
     def setup_logger(self):
         logger = logging.getLogger('advanced_web_crawler')
@@ -85,13 +92,17 @@ class AdvancedWebCrawler:
             if self.config.get('render_js', False):
                 content, title = self.fetch_with_javascript(url)
             else:
-                response = requests.get(url, timeout=5, proxies={'http': proxy, 'https': proxy})
+                response = self.session.get(url, timeout=5, proxies={'http': proxy, 'https': proxy})
                 response.raise_for_status()
                 content = response.text
+                content_type = response.headers.get('content-type', '').split(';')[0]
+                if not self.is_allowed_content_type(content_type):
+                    return [], None
                 soup = BeautifulSoup(content, 'html.parser')
                 title = soup.title.string if soup.title else 'No title'
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             self.logger.error(f"Error processing {url}: {e}")
+            self.broken_links.append((url, str(e)))
             return [], None
 
         self.visited.add(url)
@@ -103,6 +114,10 @@ class AdvancedWebCrawler:
         new_links = self.extract_links(url, content)
         metadata = self.extract_metadata(content)
         category = self.categorize_content(content)
+
+        # Apply plugins
+        for plugin in self.plugins:
+            plugin.process(url, content, metadata, category)
 
         self.output_handler.write(url, title, metadata, content, category)
 
@@ -136,6 +151,12 @@ class AdvancedWebCrawler:
             if pattern in url:
                 return False
         return True
+
+    def is_allowed_content_type(self, content_type):
+        allowed_types = self.config.get('content_types', [])
+        if not allowed_types:  # If no types specified, allow all
+            return True
+        return any(allowed_type in content_type for allowed_type in allowed_types)
 
     def extract_metadata(self, content):
         soup = BeautifulSoup(content, 'html.parser')
@@ -173,6 +194,19 @@ class AdvancedWebCrawler:
         s.quit()
 
     def crawl(self):
+        crawl_pattern = self.config.get('crawl_pattern', 'breadth-first')
+        if crawl_pattern == 'breadth-first':
+            self.crawl_breadth_first()
+        elif crawl_pattern == 'depth-first':
+            self.crawl_depth_first()
+        else:
+            raise ValueError(f"Unsupported crawl pattern: {crawl_pattern}")
+
+        self.output_handler.close()
+        self.save_state()
+        self.report_broken_links()
+
+    def crawl_breadth_first(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.get('threads', 5)) as executor:
             while self.to_visit:
                 current_url, current_depth = self.to_visit.pop(0)
@@ -185,7 +219,57 @@ class AdvancedWebCrawler:
                 for link in new_links[:self.config.get('breadth', 100)]:
                     self.to_visit.append((link, current_depth + 1))
 
-        self.output_handler.close()
+    def crawl_depth_first(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.get('threads', 5)) as executor:
+            while self.to_visit:
+                current_url, current_depth = self.to_visit.pop()
+                if current_depth > self.config['depth']:
+                    continue
+
+                future = executor.submit(self.process_url, current_url, current_depth)
+                new_links, _ = future.result()
+
+                for link in reversed(new_links[:self.config.get('breadth', 100)]):
+                    self.to_visit.append((link, current_depth + 1))
+
+    def save_state(self):
+        state = {
+            'visited': self.visited,
+            'to_visit': self.to_visit,
+            'content_store': self.content_store
+        }
+        with open('crawler_state.pkl', 'wb') as f:
+            pickle.dump(state, f)
+
+    def load_state(self):
+        if os.path.exists('crawler_state.pkl'):
+            with open('crawler_state.pkl', 'rb') as f:
+                state = pickle.load(f)
+            self.visited = state['visited']
+            self.to_visit = state['to_visit']
+            self.content_store = state['content_store']
+            return True
+        return False
+
+    def report_broken_links(self):
+        if self.broken_links:
+            self.logger.info("Broken links found:")
+            for url, error in self.broken_links:
+                self.logger.info(f"{url}: {error}")
+
+    def load_plugins(self):
+        plugins = []
+        plugin_dir = self.config.get('plugin_dir', 'plugins')
+        if os.path.exists(plugin_dir):
+            for filename in os.listdir(plugin_dir):
+                if filename.endswith('.py'):
+                    module_name = filename[:-3]
+                    spec = importlib.util.spec_from_file_location(module_name, os.path.join(plugin_dir, filename))
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    if hasattr(module, 'CrawlerPlugin'):
+                        plugins.append(module.CrawlerPlugin())
+        return plugins
 
 class CSVOutputHandler:
     def __init__(self, filename):
@@ -240,6 +324,7 @@ def main():
     parser.add_argument('--depth', type=int, default=2, help='The maximum depth to crawl (default: 2)')
     parser.add_argument('--output', default='output.csv', help='The output file name (default: output.csv)')
     parser.add_argument('--config', help='Path to YAML configuration file')
+    parser.add_argument('--resume', action='store_true', help='Resume from previous state')
     args = parser.parse_args()
 
     if args.config:
@@ -258,6 +343,9 @@ def main():
         }
 
     crawler = AdvancedWebCrawler(config)
+    
+    if args.resume and crawler.load_state():
+        print("Resuming from previous state.")
     
     if config.get('schedule'):
         schedule.every().day.at(config['schedule']).do(crawler.crawl)
